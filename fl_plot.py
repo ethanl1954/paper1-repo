@@ -251,10 +251,10 @@ def draw_band(ax, ax_spec: SweepAxis, level, *, fill, line, base=None,
 
 
 def draw_mean_ci(ax, ax_spec: SweepAxis, mean, sem, *, color="black",
-                 theme: Theme = THEME) -> None:
-    """Measured mean as dots+line with 95% CI caps."""
+                 marker="o", theme: Theme = THEME) -> None:
+    """Measured mean as marker+line with 95% CI caps."""
     x = ax_spec.x
-    ax.plot(x, mean, "o-", color=color, lw=1.2, zorder=5)
+    ax.plot(x, mean, marker=marker, ls="-", color=color, lw=1.2, zorder=5)
     ax.errorbar(x, mean, yerr=1.96 * np.asarray(sem), **theme.ci_caps)
     ax.set_xlim(x[0], x[-1])
     ax.set_xticks(x, ax_spec.cats, fontsize=theme.tick_fontsize)
@@ -424,18 +424,18 @@ class MeanCI:
     caption = "black dots = mean with 95% CI caps"
 
     def __init__(self, col: str, *, label: str | None = None, color: str = "black",
-                 caption: str | None = None):
-        self.col, self.label, self.color = col, label, color
+                 marker: str = "o", caption: str | None = None):
+        self.col, self.label, self.color, self.marker = col, label, color, marker
         if caption is not None:
             self.caption = caption
 
     def draw(self, ax, ax_spec, sub, j_idx, theme):
         a = summarize(sub, ax_spec, self.col)
         draw_mean_ci(ax, ax_spec, a["mean"].to_numpy(), a["sem"].to_numpy(),
-                     color=self.color, theme=theme)
+                     color=self.color, marker=self.marker, theme=theme)
 
     def legend_handles(self, theme):
-        return [plt.Line2D([], [], marker="o", color=self.color, lw=1.2,
+        return [plt.Line2D([], [], marker=self.marker, color=self.color, lw=1.2,
                            label=self.label or self.col)]
 
 

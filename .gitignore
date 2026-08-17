@@ -5,3 +5,4 @@ __pycache__/
 *.parquet
 *.png
 *.pdf
+.DS_Store

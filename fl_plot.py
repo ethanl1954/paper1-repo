@@ -93,7 +93,10 @@ class Theme:
     grid_color: str = "0.85"
     zero_line_color: str = "0.6"
     caption_fontsize: float = 8.0
-    tick_fontsize: float = 8.0
+    tick_fontsize: float = 11.0
+    label_fontsize: float = 11.0
+    legend_fontsize: float = 11.0
+    title_fontsize: float = 13.0
     sin2_ticks: tuple = ((0, 0.25, 0.5, 0.75, 1.0), ("0", "0.25", "0.50", "0.75", "1.0"))
     ci_caps: dict = field(default_factory=lambda: dict(
         fmt="none", ecolor="black", elinewidth=0.8, capsize=2, zorder=6))
@@ -712,24 +715,26 @@ def grid(df: pd.DataFrame, key: str, rows, *, suptitle=None, caption_extra=None,
                     mark.draw(ax, ax_spec, df[df["j"] == jm], int(jm) - 1, theme)
             if ri == 0:
                 title = col_titles[ci] if col_titles else f"factor {j}"
-                ax.set_title(title, color=theme.navy)
+                ax.set_title(title, color=theme.navy, fontsize=theme.title_fontsize)
             if ri == nrows - 1:
-                ax.set_xlabel(ax_spec.xlabel)
+                ax.set_xlabel(ax_spec.xlabel, fontsize=theme.label_fontsize)
     for ri, row in enumerate(rows):
         if row.ylim is not None:
             axes[ri, 0].set_ylim(*row.ylim)
         if row.yticks is not None:
             axes[ri, 0].set_yticks(*row.yticks)
         if axes[ri, 0].axison:
-            axes[ri, 0].set_ylabel(row.ylabel)
+            axes[ri, 0].set_ylabel(row.ylabel, fontsize=theme.label_fontsize)
         elif row.ylabel:
             # Axis-off rows (e.g. DiskDensity) swallow set_ylabel — draw the row
             # label as rotated text just left of the panel instead.
             axes[ri, 0].text(-0.06, 0.5, row.ylabel, transform=axes[ri, 0].transAxes,
-                             rotation=90, ha="right", va="center", color=theme.navy)
+                             rotation=90, ha="right", va="center", color=theme.navy,
+                             fontsize=theme.label_fontsize)
     for ax in axes.flat:
         ax.set_axisbelow(True)
         ax.grid(True, color=theme.grid_color, lw=0.5)
+        ax.tick_params(axis="y", labelsize=theme.tick_fontsize)
         ax.label_outer()
 
     if legend_row is not None:
@@ -740,7 +745,8 @@ def grid(df: pd.DataFrame, key: str, rows, *, suptitle=None, caption_extra=None,
         for h in handles:                      # dedupe by label (cells rows repeat marks)
             uniq.setdefault(h.get_label(), h)
         if uniq:
-            axes[legend_row, 0].legend(handles=list(uniq.values()), fontsize=7.5,
+            axes[legend_row, 0].legend(handles=list(uniq.values()),
+                                       fontsize=theme.legend_fontsize,
                                        loc="upper right")
 
     if suptitle:

@@ -227,10 +227,24 @@ class Eq6RHSAnalysis:
     """
     Predicted RHS of Equation (6), Part (ii): floor + weight × rotation for each j.
 
-    Uses factor returns F from the context and empirical prevalences cⱼ = ‖B[j,:]‖²/p
-    from the model loadings. Computes D̂ = C^{1/2}(F_c F_c^T/n)C^{1/2}, where F_c is
-    F row-demeaned over time when ``center=True`` (default) — the realized-factor
-    analogue of centering Y in the LHS, keeping the paired LHS/RHS consistent.
+    Uses factor returns F from the context and the true population prevalences
+    cⱼ = (GB)ⱼⱼ — the calibration constant, known exactly, since the Bⱼ column
+    distributions are chosen by us (e.g. loc=1.0, scale=0.5 for factor 1 gives
+    E[B_i1²] = 1.25). We deliberately do NOT recompute cⱼ empirically from the
+    realized, p-truncated ``context.model.B`` (‖B[j,:]‖²/p): since B is nested
+    (the first p rows of a fixed infinite array), that estimate is noisy and
+    biased for small p and only converges to the true cⱼ as p → ∞. Using it here
+    would silently leak p-dependence into floor/rotation/rhs, which the paper's
+    Theorem 1 defines as p-independent asymptotic quantities — the captions in
+    Figures 1-4 call these "asymptotic" limits, so the reference line plotted
+    against them should be the fixed population value, not a finite-p estimate.
+    (A finite-p, data-driven estimator does have a role in the paper — see the
+    ℓ⁽ᵖ⁾/θⱼ⁽ᵖ⁾ estimator of Theorem 2 — but that is a distinct, separately-plotted
+    quantity from this "asymptotic RHS" reference.)
+
+    Computes D̂ = C^{1/2}(F_c F_c^T/n)C^{1/2}, where F_c is F row-demeaned over
+    time when ``center=True`` (default) — the realized-factor analogue of
+    centering Y in the LHS, keeping the paired LHS/RHS consistent.
     ``center=False`` uses the raw F (uncentered second moment), matching a
     ``SineAlignmentAnalysis(center=False)`` LHS. Normalization stays 1/n (the MLE;
     the lost degree of freedom is a minor large-n bias we accept).
@@ -245,8 +259,14 @@ class Eq6RHSAnalysis:
         # keys: "rhs", "floor", "rotation", "rhos", "delta2"
     """
 
-    def __init__(self, center: bool = True):
+    # True population GB diagonal for the Section 8 calibration: factor 1 loadings
+    # ~ N(1.0, 0.5²) so E[B_i1²] = 0.5² + 1.0² = 1.25; factors 2-3 ~ N(0, 1²) so
+    # E[B_ij²] = 1.0. Matches GB = diag(1.25, 1, 1) as stated in the paper.
+    _GB_DIAG_DEFAULT = (1.25, 1.0, 1.0)
+
+    def __init__(self, center: bool = True, GB_diag=None):
         self.center = center
+        self.GB_diag = self._GB_DIAG_DEFAULT if GB_diag is None else tuple(GB_diag)
 
     def analyze(self, context: SimulationContext) -> dict:
         k, n = context.k, context.T
@@ -254,7 +274,9 @@ class Eq6RHSAnalysis:
         if self.center:
             # Row-demean F over time — the realized-factor analogue of centering Y.
             F = F - F.mean(axis=1, keepdims=True)
-        c_half = np.sqrt((context.model.B ** 2).mean(axis=1))   # √cⱼ
+        # √cⱼ from the true, fixed population GB diagonal (see class docstring) —
+        # NOT re-estimated from the p-truncated context.model.B.
+        c_half = np.sqrt(np.asarray(self.GB_diag[:k], dtype=float))
         D_hat = (c_half[:, None] * (F @ F.T / n)) * c_half[None, :]
         vals, vecs = np.linalg.eigh(D_hat)
         idx = np.argsort(vals)[::-1]
